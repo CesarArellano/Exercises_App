@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:local_auth/auth_strings.dart';
-import 'package:local_auth/local_auth.dart';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
+import 'package:flutter_local_auth_invisible/flutter_local_auth_invisible.dart';
 
 class Page1 extends StatefulWidget {
 
@@ -10,58 +12,103 @@ class Page1 extends StatefulWidget {
 
 class _Page1State extends State<Page1> {
 
-  LocalAuthentication _localAuth = new LocalAuthentication();
-  bool canCheckBiometrics = false;
+  final LocalAuthentication auth = LocalAuthentication();
+  bool _canCheckBiometrics = false;
+  List<BiometricType>? _availableBiometrics;
+  String _authorized = 'Not Authorized';
 
-  @override
-  void initState() {
-    _localAuth.canCheckBiometrics.then((value) { 
-      canCheckBiometrics = value;
-      setState(() {});
+  Future<void> _checkBiometrics() async {
+    bool canCheckBiometrics = false;
+    try {
+      canCheckBiometrics = await auth.canCheckBiometrics;
+    } on PlatformException catch (e) {
+      print(e);
+    }
+    if (!mounted) return;
+
+    setState(() {
+      _canCheckBiometrics = canCheckBiometrics;
     });
-    
-    super.initState();
   }
 
+  Future<void> _getAvailableBiometrics() async {
+    List<BiometricType> availableBiometrics = <BiometricType>[];
+    try {
+      availableBiometrics = await auth.getAvailableBiometrics();
+    } on PlatformException catch (e) {
+      print(e);
+    }
+    if (!mounted) return;
+
+    setState(() {
+      _availableBiometrics = availableBiometrics;
+    });
+  }
+
+  Future<void> _authenticate() async {
+    bool authenticated = false;
+    try {
+      authenticated = await auth.authenticateWithBiometrics(
+        localizedReason: 'Scan your fingerprint to authenticate',
+        useErrorDialogs: true,
+        stickyAuth: false,
+      );
+      if (authenticated) scanQR();
+    } on PlatformException catch (e) {
+      print(e);
+    }
+    if (!mounted) return;
+
+    setState(() {
+      _authorized = authenticated ? 'Authorized' : 'Not Authorized';
+    });
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Testing Fingerprint'),
+        title: const Text('Plugin example app'),
       ),
-      body: Center(
-        child: Text('Page 1'),
+      drawer: Drawer(
+        child: SafeArea(
+          child: Column(
+            children: [
+              ListTile(
+                onTap: () => Navigator.pushNamed(context, 'page2'),
+                title: Text('In App Review'),
+                leading: Icon( Icons.rate_review ),
+              )
+            ],
+          ),
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.fingerprint),
-        onPressed: () async {
-
-          if(canCheckBiometrics) {
-            print('Biometrics Available');
-            bool didAuthenticate = await _localAuth.authenticate(
-              androidAuthStrings: AndroidAuthMessages(
-                signInTitle: 'Autenticación requerida',
-                biometricHint: 'Verificando su identidad',
-                deviceCredentialsRequiredTitle: 'Toque el sensor de huella',
-                cancelButton: 'Cancelar',
-                deviceCredentialsSetupDescription: 'Toque el sensor de huella',
-                biometricRequiredTitle: 'Ingrese su huella',
-                biometricNotRecognized: 'Huella no reconocida',
-                biometricSuccess: 'Huella reconocida'
-              ),
-              localizedReason: 'Por favor autenticate para mostrar su saldo',
-              iOSAuthStrings: IOSAuthMessages(cancelButton: 'Cancelar')
-            );
-
-            ( didAuthenticate )
-              ? alertDialog(context, 'Validación correcta', false)
-              : alertDialog(context, 'Validación incorrecta', true);
-
-          } else {
-            print('Biometrics Unavailable');
-          }
-        },
-      )
+      body: ConstrainedBox(
+        constraints: const BoxConstraints.expand(),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            Text('Can check biometrics: $_canCheckBiometrics\n'),
+            // ignore: deprecated_member_use
+            RaisedButton(
+              child: const Text('Check biometrics'),
+              onPressed: _checkBiometrics,
+            ),
+            Text('Available biometrics: $_availableBiometrics\n'),
+            // ignore: deprecated_member_use
+            RaisedButton(
+              child: const Text('Get available biometrics'),
+              onPressed: _getAvailableBiometrics,
+            ),
+            Text('Current State: $_authorized\n'),
+            // ignore: deprecated_member_use
+            RaisedButton(
+              child: const Text('Authenticate'),
+              onPressed: _authenticate,
+            )
+          ],
+        ),
+      ),
     );
   }
 
@@ -85,4 +132,15 @@ class _Page1State extends State<Page1> {
       )
     );
   }
+
+  void scanQR() async {
+    String barcodeScanRes = await FlutterBarcodeScanner.scanBarcode(
+      '#fff', 
+      'Cancelar', 
+      true, 
+      ScanMode.QR
+    );
+    print(barcodeScanRes);
+  }
+
 }

@@ -1,7 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.exercises_app">
-  <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
-  <application
+    package="com.tekae.app">
+    
+    <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+
+    <application
         android:label="exercises_app"
         android:icon="@mipmap/ic_launcher">
         <activity
